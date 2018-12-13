@@ -1,36 +1,31 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: SBA.gov Spanish Redirect
+Description: Employee Match Game
 Parameters:
-  CertificateArn:
-    Description: SSL Certificate ARN
-    Type: String
   FQDN:
     Description: The domain name for the origin
     Type: String
-    Default: match.fearless.tech
+    Default: match.thebeef.io
   CloudfrontDNSPrefix:
     Type: String
     Default: cloudfront
-  HostedZoneName:
-    Type: String
-    Default: fearless.tech
-  LoggingBucket:
+  LoggingBucketName:
     Description: The bucket to write CloudFront logs to
     Type: String
-    Default: fearless.tech-logging
+    Default: thebeef.io-corporate-logging
   LoggingPrefix:
     Description: The key prefix to write CloudFront logs to
     Type: String
     Default: match
 Resources:
-  MainHostedZone:
-    Type: "AWS::Route53::HostedZone"
+  MainCertificate:
+    Type: AWS::CertificateManager::Certificate
     Properties: 
-      Name: !Ref HostedZoneName
+      DomainName: !Ref FQDN
+      ValidationMethod: DNS
   FQDNRecordSet:
     Type: AWS::Route53::RecordSet
     Properties:
-      HostedZoneId: !Ref MainHostedZone
+      HostedZoneId: !ImportValue TheBeefIoHostedZone
       Comment: Cloudfront origin for the site
       Name: !Ref FQDN
       Type: A
@@ -54,7 +49,7 @@ Resources:
         Enabled: true
         IPV6Enabled: true
         Logging:
-          Bucket: !Sub "${LoggingBucket}.s3.amazonaws.com"
+          Bucket: !Sub "${LoggingBucketName}.s3.amazonaws.com"
           Prefix: !Sub "${LoggingPrefix}"
         Origins:
           - Id: WebsiteOrigin
@@ -63,7 +58,7 @@ Resources:
             DomainName: !Sub "${MainBucket}.s3-website-${AWS::Region}.amazonaws.com"
         PriceClass: PriceClass_100
         ViewerCertificate:
-          AcmCertificateArn: !Ref CertificateArn
+          AcmCertificateArn: !Ref MainCertificate
           MinimumProtocolVersion: TLSv1.1_2016
           SslSupportMethod: sni-only
       Tags:
@@ -78,3 +73,21 @@ Resources:
       Tags:
       - Key: Name
         Value: !Ref FQDN
+  MainBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties: 
+      Bucket: !Ref MainBucket
+      PolicyDocument: 
+        Statement:
+        - Sid: PublicReadGetObject
+          Effect: Allow
+          Principal: "*"
+          Action: s3:GetObject
+          Resource: arn:aws:s3:::match.thebeef.io/*
+  LoggingBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref LoggingBucketName
+      Tags:
+      - Key: Name
+        Value: !Ref LoggingBucketName

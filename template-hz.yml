@@ -1,0 +1,17 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Corporate HostedZone for thebeef.io
+Parameters:
+  HostedZoneName:
+    Type: String
+    Default: thebeef.io
+Resources:
+  MainHostedZone:
+    Type: "AWS::Route53::HostedZone"
+    Properties: 
+      Name: !Ref HostedZoneName
+Outputs:
+  HostedZoneIdOutput:
+    Description: The Hosted ZoneId for the thebeef.io HZ
+    Value: !Ref MainHostedZone
+    Export:
+      Name: TheBeefIoHostedZone
