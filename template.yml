@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: SBA.gov Spanish Redirect
+Parameters:
+  CertificateArn:
+    Description: SSL Certificate ARN
+    Type: String
+  FQDN:
+    Description: The domain name for the origin
+    Type: String
+    Default: match.fearless.tech
+  CloudfrontDNSPrefix:
+    Type: String
+    Default: cloudfront
+  HostedZoneName:
+    Type: String
+    Default: fearless.tech
+  LoggingBucket:
+    Description: The bucket to write CloudFront logs to
+    Type: String
+    Default: fearless.tech-logging
+  LoggingPrefix:
+    Description: The key prefix to write CloudFront logs to
+    Type: String
+    Default: match
+Resources:
+  MainHostedZone:
+    Type: "AWS::Route53::HostedZone"
+    Properties: 
+      Name: !Ref HostedZoneName
+  FQDNRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref MainHostedZone
+      Comment: Cloudfront origin for the site
+      Name: !Ref FQDN
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt CloudFrontDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2 #CloudFront's HostedZone
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Aliases:
+        - !Sub "${FQDN}"
+        Comment: !Sub "${FQDN} CloudFront"
+        DefaultCacheBehavior:
+          AllowedMethods:  ["HEAD", "GET", "OPTIONS" ]
+          TargetOriginId: WebsiteOrigin
+          ForwardedValues:
+            QueryString: false
+          ViewerProtocolPolicy: redirect-to-https
+        DefaultRootObject: index.html
+        Enabled: true
+        IPV6Enabled: true
+        Logging:
+          Bucket: !Sub "${LoggingBucket}.s3.amazonaws.com"
+          Prefix: !Sub "${LoggingPrefix}"
+        Origins:
+          - Id: WebsiteOrigin
+            CustomOriginConfig:
+              OriginProtocolPolicy: http-only
+            DomainName: !Sub "${MainBucket}.s3-website-${AWS::Region}.amazonaws.com"
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          MinimumProtocolVersion: TLSv1.1_2016
+          SslSupportMethod: sni-only
+      Tags:
+      - Key: Name
+        Value: !Sub ${FQDN}-cloudfront
+  MainBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref FQDN
+      WebsiteConfiguration:
+        IndexDocument: index.html
+      Tags:
+      - Key: Name
+        Value: !Ref FQDN
